@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -euxo pipefail
 
 generate_database_config(){
@@ -37,6 +36,11 @@ generate_metastore_site_config(){
   cat << XML > "$1"
 <configuration>
   <property>
+    <name>metastore.thrift.uris</name>
+    <value>thrift://0.0.0.0:9083</value>
+    <description>Thrift URI for the remote metastore. Used by metastore client to connect to remote metastore.</description>
+  </property>
+  <property>
     <name>metastore.task.threads.always</name>
     <value>org.apache.hadoop.hive.metastore.events.EventCleanerTask</value>
   </property>
@@ -45,14 +49,6 @@ generate_metastore_site_config(){
     <value>org.apache.hadoop.hive.metastore.DefaultPartitionExpressionProxy</value>
   </property>
   $database_config
-  <property>
-    <name>metastore.warehouse.dir</name>
-    <value>s3a://${S3_BUCKET}/${S3_PREFIX}/</value>
-  </property>
-  <property>
-    <name>metastore.thrift.port</name>
-    <value>9083</value>
-  </property>
 </configuration>
 XML
 }
@@ -70,11 +66,11 @@ generate_s3_custom_endpoint(){
 </property>
 <property>
   <name>fs.s3a.access.key</name>
-  <value>${AWS_ACCESS_KEY_ID:-}</value>
+  <value>${AWS_ACCESS_KEY_ID}</value>
 </property>
 <property>
   <name>fs.s3a.secret.key</name>
-  <value>${AWS_SECRET_ACCESS_KEY:-}</value>
+  <value>${AWS_SECRET_ACCESS_KEY}</value>
 </property>
 <property>
   <name>fs.s3a.connection.ssl.enabled</name>
@@ -92,16 +88,16 @@ generate_core_site_config(){
   cat << XML > "$1"
 <configuration>
   <property>
-      <name>fs.defaultFS</name>
-      <value>s3a://${S3_BUCKET}</value>
-  </property>
-  <property>
       <name>fs.s3a.impl</name>
       <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
   </property>
   <property>
       <name>fs.s3a.fast.upload</name>
       <value>true</value>
+  </property>
+  <property>
+    <name>fs.s3a.path.style.access</name>
+    <value>true</value>
   </property>
   $custom_endpoint_configs
 </configuration>
