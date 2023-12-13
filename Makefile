@@ -33,7 +33,7 @@ build:
 .PHONY: build
 
 up:
-	docker-compose --env-file .env up -V --abort-on-container-exit > ./logs/log_$(DATE).log 2>&1 &
+	docker-compose --env-file .env up -V > ./logs/log_$(DATE).log 2>&1 &
 .PHONY: up
 
 down:
@@ -45,5 +45,9 @@ restart:
 .PHONY: restart
 
 to_trino:
-	docker exec -it $(TRINO_CONTAINER) trino --server http://127.0.0.1:8080
+	docker exec -it trino trino --server http://127.0.0.1:8080
 .PHONY: to_trino
+
+to_psql:
+	docker exec -it psql psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+.PHONY: to_psql

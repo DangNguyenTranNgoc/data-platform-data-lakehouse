@@ -4,6 +4,7 @@ services:
   postgres:
     hostname: postgres
     image: postgres:15-alpine
+    container_name:  postgres
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -12,6 +13,8 @@ services:
       test: ["CMD", "psql", "-U", "${POSTGRES_USER}", "${POSTGRES_DB}"]
     ports:
       - '5432:5432'
+    volumes:
+      - ${PWD}/mnt/postgresql:/var/lib/postgresql/data
     networks:
       - platform-network
 
@@ -20,6 +23,7 @@ services:
       context: ./containers/hive-metastore/
       dockerfile: hive-metastore.dockerfile
     hostname: hive-metastore
+    container_name: hive-metastore
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,14 +35,18 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - S3_ENDPOINT_URL=http://minio:9000
+    volumes:
+      - ${PWD}/mnt/hive:/user/hive
     ports:
       - '9083:9083'
+    
     networks:
       - platform-network
   
   trino:
     hostname: trino
     image: 'trinodb/trino:latest'
+    container_name: trino
     ports:
       - '8080:8080'
     volumes:
@@ -47,26 +55,71 @@ services:
       - platform-network
   
   minio:
+    user: "${UID}:${GID}"
     hostname: minio
-    image: 'quay.io/minio/minio:latest'
+    image: quay.io/minio/minio:latest
     container_name: minio
     ports:
       - '9000:9000'
       - '9001:9001'
     volumes:
-      - minio-data:/data
+      - ${PWD}/mnt/minio:/bitnami/minio/data
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_PROMETHEUS_AUTH_TYPE: public # Just for dev/staging env
     command: server /data --console-address ":9001"
     networks:
       - platform-network
 
-volumes:
-  minio-data:
-    driver: local
-  hive-data:
-    driver: local
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    ports:
+      - 8081:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      # This mount is for WSL2, based on: https://github.com/google/cadvisor/issues/2648
+      #- /mnt/windows-docker/:/var/lib/docker:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    networks:
+      - platform-network
+    devices: 
+      - /dev/kmsg
+
+  prometheus:
+    user: "${UID}:${GID}"
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ${PWD}/mnt/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - cadvisor
+    networks:
+      - platform-network
+
+  grafana:
+    user: "${UID}:${GID}"
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 4000:3000
+    volumes:
+      - ${PWD}/mnt/grafana/:/var/lib/grafana
+      - ${PWD}/mnt/grafana-provisioning/:/etc/grafana/provisioning/
+    restart: always
+    depends_on:
+      - prometheus
+    networks:
+      - platform-network
 
 networks:
   platform-network:
