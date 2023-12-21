@@ -1,0 +1,14 @@
+metastore:
+  outputs:
+
+    dev:
+      type: postgres
+      threads: 1
+      host: postgres
+      port: 5432
+      user: admin
+      pass: admin123
+      dbname: metastore
+      schema: metastore
+
+  target: dev

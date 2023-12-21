@@ -4,7 +4,11 @@ services:
   postgres:
     hostname: postgres
     image: postgres:15-alpine
-    container_name:  postgres
+    container_name: postgres
+    profiles:
+      - all
+      - core
+      - database
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -24,6 +28,9 @@ services:
       dockerfile: hive-metastore.dockerfile
     hostname: hive-metastore
     container_name: hive-metastore
+    profiles:
+      - all
+      - core
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +54,9 @@ services:
     hostname: trino
     image: 'trinodb/trino:latest'
     container_name: trino
+    profiles:
+      - all
+      - core
     ports:
       - '8080:8080'
     volumes:
@@ -59,6 +69,9 @@ services:
     hostname: minio
     image: quay.io/minio/minio:latest
     container_name: minio
+    profiles:
+      - all
+      - core
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -75,6 +88,9 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: cadvisor
+    profiles:
+      - all
+      - monitor
     ports:
       - 8081:8080
     volumes:
@@ -95,6 +111,9 @@ services:
     user: "${UID}:${GID}"
     image: prom/prometheus:latest
     container_name: prometheus
+    profiles:
+      - all
+      - monitor
     ports:
       - 9090:9090
     command:
@@ -110,6 +129,9 @@ services:
     user: "${UID}:${GID}"
     image: grafana/grafana
     container_name: grafana
+    profiles:
+      - all
+      - monitor
     ports:
       - 4000:3000
     volumes:
@@ -118,6 +140,21 @@ services:
     restart: always
     depends_on:
       - prometheus
+    networks:
+      - platform-network
+
+  dbt-contianer:
+    user: ${UID}:${GID}
+    build:
+      context: ./containers/dbt-container/
+      dockerfile: dbt.dockerfile
+    hostname: dbt-contianer
+    container_name: dbt-contianer
+    profiles:
+      - all
+      - database
+    volumes:
+      - ${PWD}/mnt/dbt:/app
     networks:
       - platform-network
 
