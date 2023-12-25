@@ -1,6 +1,9 @@
 version: '3.9'
-
 services:
+
+  ###################
+  ## Storage Layer ##
+  ###################
   postgres:
     hostname: postgres
     image: postgres:15-alpine
@@ -16,9 +19,25 @@ services:
     healthcheck:
       test: ["CMD", "psql", "-U", "${POSTGRES_USER}", "${POSTGRES_DB}"]
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - ${PWD}/mnt/postgresql:/var/lib/postgresql/data
+    networks:
+      - platform-network
+  
+  database-init:
+    build:
+      context: ./container/database-init
+      dockerfile: database-init.dockerfile
+    profiles:
+      - all
+      - core
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${PWD}/container/database-init/scripts:/app
     networks:
       - platform-network
 
@@ -34,6 +53,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
     environment:
       - DATABASE_HOST=postgres
       - DATABASE_DB=${POSTGRES_DB}
@@ -45,8 +66,7 @@ services:
     volumes:
       - ${PWD}/mnt/hive:/user/hive
     ports:
-      - '9083:9083'
-    
+      - "9083:9083"
     networks:
       - platform-network
   
@@ -58,7 +78,7 @@ services:
       - all
       - core
     ports:
-      - '8080:8080'
+      - "8080:8080"
     volumes:
       - ${PWD}/mnt/trino-etc:/etc/trino
     networks:
@@ -73,8 +93,8 @@ services:
       - all
       - core
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - ${PWD}/mnt/minio:/bitnami/minio/data
     environment:
@@ -84,7 +104,91 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - platform-network
+  
+  #####################
+  ## Transform Layer ##
+  #####################
+  dbt-container:
+    user: ${UID}:${GID}
+    build:
+      context: ./containers/dbt-container/
+      dockerfile: dbt.dockerfile
+    hostname: dbt-container
+    container_name: dbt-container
+    profiles:
+      - all
+      - database
+    volumes:
+      - ${PWD}/mnt/dbt:/app
+    networks:
+      - platform-network
+  
+  dbt-spark3-thrift:
+    build: docker/
+    ports:
+      - "10000:10000"
+      - "4040:4040"
+    depends_on:
+      - dbt-hive-metastore
+    command: >
+      --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2
+      --name Thrift JDBC/ODBC Server
+    volumes:
+      - ./.spark-warehouse/:/spark-warehouse/
+      - ./docker/hive-site.xml:/usr/spark/conf/hive-site.xml
+      - ./docker/spark-defaults.conf:/usr/spark/conf/spark-defaults.conf
+    environment:
+      - WAIT_FOR=dbt-hive-metastore:5432
 
+  spark-thrift-server:
+    build:
+      context: ./containers/spark-thrift-server/
+      dockerfile: sts.dockerfile
+    container_name: spark-thrift-server    
+    depends_on:
+      - spark-master
+      - hive-metastore
+    ports:
+      - "10000:10000"
+      - ""
+    environment:
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1G
+      SPARK_DRIVER_MEMORY: 1G
+      SPARK_EXECUTOR_MEMORY: 1G
+      SPARK_WORKLOAD: thift
+      SPARK_LOCAL_IP: spark-thrift-server
+      AWS_ACCESS_KEY_ID:  ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      HUDI_S3_BUCKET: ${HUDI_S3_BUCKET}       
+    volumes:
+      - ./apps:/opt/spark-apps
+      - ./data:/opt/spark-data   
+    networks:
+      - platform-network
+
+  #########################
+  ## Visualization Layer ##
+  #########################
+
+  # Metabase
+
+  #########################
+  ## Orchestration Layer ##
+  #########################
+
+  # Airflow
+
+  #####################
+  ## Ingestion Layer ##
+  #####################
+
+  # Airbyte
+
+  ######################
+  ## Monitoring Layer ##
+  ######################
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: cadvisor
@@ -140,21 +244,6 @@ services:
     restart: always
     depends_on:
       - prometheus
-    networks:
-      - platform-network
-
-  dbt-contianer:
-    user: ${UID}:${GID}
-    build:
-      context: ./containers/dbt-container/
-      dockerfile: dbt.dockerfile
-    hostname: dbt-contianer
-    container_name: dbt-contianer
-    profiles:
-      - all
-      - database
-    volumes:
-      - ${PWD}/mnt/dbt:/app
     networks:
       - platform-network
 

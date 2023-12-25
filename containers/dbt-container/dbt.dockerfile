@@ -3,11 +3,8 @@ FROM python:3.10.13-slim-bullseye
 WORKDIR /app
 
 COPY ./requirements.txt .
-COPY ./profiles.yml .
 
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
-
-RUN mkdir /.local && chmod g+rwX /.local
 
 RUN apt-get update \
     && apt-get dist-upgrade -y \
