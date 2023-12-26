@@ -71,3 +71,15 @@ to-dbt:
 check-dbt:
 	docker exec -it dbt-contianer dbt debug --project-dir metastore/ --profiles-dir ./
 .PHONY: check-dbt
+
+#######################
+## Terraform is here ##
+#######################
+
+tf-apply:
+	terraform -chdir=terraform apply
+.PHONY: tf-apply
+
+tf-destroy:
+	terraform -chdir=terraform destroy
+.PHONY: tf-destroy
