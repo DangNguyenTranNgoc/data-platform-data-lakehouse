@@ -8,6 +8,7 @@ terraform {
 }
 
 provider "docker" {
+  # Run [docker context ls] command to find out your Docker Enpoint
   host = "unix:///var/run/docker.sock"
 }
 
@@ -32,16 +33,6 @@ resource "docker_image" "hive_metastore" {
   }
 }
 
-resource "docker_image" "dbt_image" {
-  name = "dbt:dev"
-  keep_locally = true
-#   build {
-#     context = "${local.codebase_root_path}/containers/dbt-container/"
-#     dockerfile = "dbt-container.dockerfile"
-#     tag = ["dbt:dev"]
-#   }
-}
-
 resource "docker_image" "postgres" {
   name = "postgres:15-alpine"
   keep_locally = true
@@ -58,8 +49,13 @@ resource "docker_image" "minio" {
 }
 
 resource "docker_image" "spark" {
-  name = "bitnami/spark:3.5-debian-11"
+  name = "spark"
   keep_locally = true
+  build {
+    context = "${local.codebase_root_path}/containers/spark/"
+    dockerfile = "spark.dockerfile"
+    tag = ["spark:dev"]
+  }
 }
 
 resource "docker_network" "data_platform_net" {
@@ -136,10 +132,6 @@ resource "docker_container" "hive_metastore" {
   networks_advanced {
     name = docker_network.data_platform_net.id
   }
-  ports {
-    internal = 9083
-    external = 9083
-  }
   volumes {
     container_path = "/user/hive"
     host_path = "${local.codebase_root_path}/mnt/hive/"
@@ -152,7 +144,9 @@ resource "docker_container" "hive_metastore" {
     "DATABASE_DB=${var.POSTGRES_DB}",
     "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY_ID}",
     "AWS_SECRET_ACCESS_KEY=${var.AWS_SECRET_KEY}",
-    "S3_ENDPOINT_URL=http://minio:9000"
+    "S3_ENDPOINT_URL=${var.S3_ENDPOINT_URL}",
+    "S3_BUCKET=${var.S3_BUCKET}",
+    "S3_PREFIX=${var.S3_PREFIX}"
     ]
 }
 
@@ -211,24 +205,37 @@ resource "docker_container" "minio" {
 
 # Transform Layer
 
-resource "docker_container" "dbt" {
-  name = "dbt"
-  image = "dbt:dev"
-  hostname = "dbt"
-  user = "1000:1000"
+resource "docker_container" "spark_thrift_server" {
+  name = "spark-thrift-server"
+  image = docker_image.spark.image_id
+  hostname = "spark-thrift-server"
   depends_on = [
+    docker_container.hive_metastore,
+    docker_container.minio,
+    docker_container.spark_master,
     docker_network.data_platform_net
     ]
   networks_advanced {
     name = docker_network.data_platform_net.id
   }
   volumes {
-    container_path = "/app/"
-    host_path = "${local.codebase_root_path}/mnt/dbt/"
+    container_path = "/usr/local/share/data/"
+    host_path = "${local.codebase_root_path}/data/"
   }
+  env = [ 
+    "SPARK_MODE=thriftserver",
+    "SPARK_MASTER=spark://spark-master:7077",
+    "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY_ID}",
+    "AWS_SECRET_ACCESS_KEY=${var.AWS_SECRET_KEY}",
+    "S3_ENDPOINT_URL=${var.S3_ENDPOINT_URL}",
+    "S3_BUCKET=${var.S3_BUCKET}",
+    "S3_PREFIX=${var.S3_PREFIX}",
+    "SPARK_WORKER_CORES=1",
+    "SPARK_DRIVER_MEMORY=512m",
+    "SPARK_EXECUTOR_MEMORY=512m",
+    "HIVE_METASTORE_URL=thrift://hive-metastore:9083",
+    ]
 }
-
-
 
 resource "docker_container" "spark_master" {
   name = "spark-master"
@@ -249,7 +256,10 @@ resource "docker_container" "spark_master" {
     host_path = "${local.codebase_root_path}/data/"
   }
   env = [ 
-    "SPARK_MODE=master"
+    "SPARK_MODE=master",
+    "S3_ENDPOINT_URL=${var.S3_ENDPOINT_URL}",
+    "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY_ID}",
+    "AWS_SECRET_ACCESS_KEY=${var.AWS_SECRET_KEY}"
    ]
 }
 
@@ -267,6 +277,9 @@ resource "docker_container" "spark_worker_1" {
     "SPARK_MODE=worker",
     "SPARK_MASTER_URL=spark://spark:7077",
     "SPARK_WORKER_MEMORY=4G",
-    "SPARK_WORKER_CORES=1"
+    "SPARK_WORKER_CORES=1",
+    "S3_ENDPOINT_URL=${var.S3_ENDPOINT_URL}",
+    "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY_ID}",
+    "AWS_SECRET_ACCESS_KEY=${var.AWS_SECRET_KEY}"
    ]
 }

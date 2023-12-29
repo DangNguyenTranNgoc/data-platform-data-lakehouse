@@ -52,3 +52,18 @@ variable "AWS_SECRET_KEY" {
   type = string
   default = "minio123"
 }
+
+variable "S3_ENDPOINT_URL" {
+  type = string
+  default = "http://minio:9000"
+}
+
+variable "S3_BUCKET" {
+  type = string
+  default = "warehouse"
+}
+
+variable "S3_PREFIX" {
+  type = string
+  default = "default"
+}
