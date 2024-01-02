@@ -1,0 +1,6 @@
+postgres, 5432
+trino, 8080
+minio, 9000;9090
+spark-master, 8181
+airflow-webserver, 7070
+airflow-flower, 5555
