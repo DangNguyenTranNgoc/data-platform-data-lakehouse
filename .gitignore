@@ -223,6 +223,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+### Ansible ###
+*.retry
+
 logs/*
 mnt/postgresql/*
 mnt/hive-metastore/*

@@ -58,6 +58,16 @@ resource "docker_image" "spark" {
   }
 }
 
+resource "docker_image" "airflow" {
+  name = "airflow"
+  keep_locally = true
+  build {
+    context = "${local.codebase_root_path}/containers/airflow/"
+    dockerfile = "airflow.dockerfile"
+    tag = ["airflow:dev"]
+  }
+}
+
 resource "docker_network" "data_platform_net" {
   name = "data_platform_net"
   driver = "bridge"
@@ -281,5 +291,214 @@ resource "docker_container" "spark_worker_1" {
     "S3_ENDPOINT_URL=${var.S3_ENDPOINT_URL}",
     "AWS_ACCESS_KEY_ID=${var.AWS_ACCESS_KEY_ID}",
     "AWS_SECRET_ACCESS_KEY=${var.AWS_SECRET_KEY}"
+   ]
+}
+
+# Orchestration Layer
+
+resource "docker_container" "airflow_webserver" {
+  name = "airflow-webserver"
+  image = docker_image.airflow.image_id
+  hostname = "airflow-webserver"
+  depends_on = [ 
+    docker_container.postgres,
+    docker_container.redis,
+    docker_container.airflow_init
+  ]
+  user = "50000:0"
+  networks_advanced {
+    name = docker_network.data_platform_net.id
+  }
+  ports {
+    internal = 8080
+    external = 7070
+  }
+  command = ["webserver"]
+  healthcheck {
+    test = ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+    interval = "10s"
+    timeout = "30s"
+    retries = 50
+    start_period = "30s"
+  }
+  volumes {
+    container_path = "/opt/airflow/dags"
+    host_path = "${local.codebase_root_path}/mnt/airflow/dags"
+  }
+  volumes {
+    container_path = "/opt/airflow/logs"
+    host_path = "${local.codebase_root_path}/mnt/airflow/logs"
+  }
+  volumes {
+    container_path = "/opt/airflow/config"
+    host_path = "${local.codebase_root_path}/mnt/airflow/config"
+  }
+  volumes {
+    container_path = "/opt/airflow/plugins"
+    host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
+  }
+  env = [
+    "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
+    "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
+    "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
+    "AIRFLOW__CELERY__BROKER_URL=${var.AIRFLOW__CELERY__BROKER_URL}",
+    "AIRFLOW__CORE__FERNET_KEY=${var.AIRFLOW__CORE__FERNET_KEY}",
+    "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=${var.AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION}",
+    "AIRFLOW__CORE__LOAD_EXAMPLES=${var.AIRFLOW__CORE__LOAD_EXAMPLES}",
+    "AIRFLOW__API__AUTH_BACKENDS=${var.AIRFLOW__API__AUTH_BACKENDS}",
+    "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=${var.AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK}"
+   ]
+}
+
+resource "docker_container" "airflow_scheduler" {
+  name = "airflow-scheduler"
+  image = docker_image.airflow.image_id
+  hostname = "airflow-scheduler"
+  depends_on = [ 
+    docker_container.postgres,
+    docker_container.redis,
+    docker_container.airflow_init
+  ]
+  wait = true
+  user = "50000:0"
+  networks_advanced {
+    name = docker_network.data_platform_net.id
+  }
+  command = ["scheduler"]
+  healthcheck {
+    test = ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+    interval = "10s"
+    timeout = "30s"
+    retries = 50
+    start_period = "30s"
+  }
+  volumes {
+    container_path = "/opt/airflow/dags"
+    host_path = "${local.codebase_root_path}/mnt/airflow/dags"
+  }
+  volumes {
+    container_path = "/opt/airflow/logs"
+    host_path = "${local.codebase_root_path}/mnt/airflow/logs"
+  }
+  volumes {
+    container_path = "/opt/airflow/config"
+    host_path = "${local.codebase_root_path}/mnt/airflow/config"
+  }
+  volumes {
+    container_path = "/opt/airflow/plugins"
+    host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
+  }
+  env = [
+    "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
+    "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
+    "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
+    "AIRFLOW__CELERY__BROKER_URL=${var.AIRFLOW__CELERY__BROKER_URL}",
+    "AIRFLOW__CORE__FERNET_KEY=${var.AIRFLOW__CORE__FERNET_KEY}",
+    "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=${var.AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION}",
+    "AIRFLOW__CORE__LOAD_EXAMPLES=${var.AIRFLOW__CORE__LOAD_EXAMPLES}",
+    "AIRFLOW__API__AUTH_BACKENDS=${var.AIRFLOW__API__AUTH_BACKENDS}",
+    "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=${var.AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK}"
+   ]
+}
+
+resource "docker_container" "airflow_worker" {
+  name = "airflow-worker"
+  image = docker_image.airflow.image_id
+  depends_on = [ 
+    docker_container.postgres,
+    docker_container.redis,
+    docker_container.airflow_init
+  ]
+  user = "50000:0"
+  wait = true
+  networks_advanced {
+    name = docker_network.data_platform_net.id
+  }
+  command = ["celery worker"]
+  healthcheck {
+    test = ["CMD-SHELL", "curl", "--fail", "celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d 'celery@$${HOSTNAME}' || celery --app airflow.executors.celery_executor.app inspect ping -d 'celery@$${HOSTNAME}'"]
+    interval = "10s"
+    timeout = "30s"
+    retries = 50
+    start_period = "30s"
+  }
+  volumes {
+    container_path = "/opt/airflow/dags"
+    host_path = "${local.codebase_root_path}/mnt/airflow/dags"
+  }
+  volumes {
+    container_path = "/opt/airflow/logs"
+    host_path = "${local.codebase_root_path}/mnt/airflow/logs"
+  }
+  volumes {
+    container_path = "/opt/airflow/config"
+    host_path = "${local.codebase_root_path}/mnt/airflow/config"
+  }
+  volumes {
+    container_path = "/opt/airflow/plugins"
+    host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
+  }
+  env = [
+    "DUMB_INIT_SETSID=0",
+    "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
+    "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
+    "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
+    "AIRFLOW__CELERY__BROKER_URL=${var.AIRFLOW__CELERY__BROKER_URL}",
+    "AIRFLOW__CORE__FERNET_KEY=${var.AIRFLOW__CORE__FERNET_KEY}",
+    "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=${var.AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION}",
+    "AIRFLOW__CORE__LOAD_EXAMPLES=${var.AIRFLOW__CORE__LOAD_EXAMPLES}",
+    "AIRFLOW__API__AUTH_BACKENDS=${var.AIRFLOW__API__AUTH_BACKENDS}",
+    "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=${var.AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK}"
+   ]
+}
+
+resource "docker_container" "airflow_triggerer" {
+  name = "airflow-triggerer"
+  image = docker_image.airflow.image_id
+  hostname = "airflow-triggerer"
+  depends_on = [ 
+    docker_container.postgres,
+    docker_container.redis,
+    docker_container.airflow_init
+  ]
+  wait = true
+  user = "50000:0"
+  networks_advanced {
+    name = docker_network.data_platform_net.id
+  }
+  command = ["triggerer"]
+  healthcheck {
+    test = ["CMD", "airflow jobs check --job-type TriggererJob --hostname '$${HOSTNAME}'"]
+    interval = "10s"
+    timeout = "30s"
+    retries = 50
+    start_period = "30s"
+  }
+  volumes {
+    container_path = "/opt/airflow/dags"
+    host_path = "${local.codebase_root_path}/mnt/airflow/dags"
+  }
+  volumes {
+    container_path = "/opt/airflow/logs"
+    host_path = "${local.codebase_root_path}/mnt/airflow/logs"
+  }
+  volumes {
+    container_path = "/opt/airflow/config"
+    host_path = "${local.codebase_root_path}/mnt/airflow/config"
+  }
+  volumes {
+    container_path = "/opt/airflow/plugins"
+    host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
+  }
+  env = [
+    "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
+    "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
+    "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
+    "AIRFLOW__CELERY__BROKER_URL=${var.AIRFLOW__CELERY__BROKER_URL}",
+    "AIRFLOW__CORE__FERNET_KEY=${var.AIRFLOW__CORE__FERNET_KEY}",
+    "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=${var.AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION}",
+    "AIRFLOW__CORE__LOAD_EXAMPLES=${var.AIRFLOW__CORE__LOAD_EXAMPLES}",
+    "AIRFLOW__API__AUTH_BACKENDS=${var.AIRFLOW__API__AUTH_BACKENDS}",
+    "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=${var.AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK}"
    ]
 }
