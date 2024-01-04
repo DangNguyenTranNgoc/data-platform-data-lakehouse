@@ -83,3 +83,51 @@ tf-apply:
 tf-destroy:
 	terraform -chdir=terraform destroy
 .PHONY: tf-destroy
+
+tf-core-apply:
+	terraform -chdir=terraform apply \
+		-target="docker_container.postgres" \
+		-target="docker_container.hive_metastore" \
+		-target="docker_container.trino" \
+		-target="docker_container.minio"
+.PHONY: tf-core-apply
+
+tf-core-destroy:
+	terraform -chdir=terraform destroy \
+		-target="docker_container.postgres" \
+		-target="docker_container.hive_metastore" \
+		-target="docker_container.trino" \
+		-target="docker_container.minio"
+.PHONY: tf-core-destroy
+
+tf-transfom-apply:
+	terraform -chdir=terraform apply \
+		-target="docker_container.spark_thrift_server" \
+		-target="docker_container.spark_master" \
+		-target="docker_container.spark_worker_1"
+.PHONY: tf-transfom-apply
+
+tf-transfom-destroy:
+	terraform -chdir=terraform destroy \
+		-target="docker_container.spark_thrift_server" \
+		-target="docker_container.spark_master" \
+		-target="docker_container.spark_worker_1"
+.PHONY: tf-transfom-destroy
+
+tf-orchest-apply:
+	terraform -chdir=terraform apply \
+		-target="redis" \
+		-target="airflow_webserver" \
+		-target="airflow_scheduler" \
+		-target="airflow_worker" \
+		-target="airflow_triggerer"
+.PHONY: tf-orchest-apply
+
+tf-orchest-destroy:
+	terraform -chdir=terraform destroy \
+		-target="redis" \
+		-target="airflow_webserver" \
+		-target="airflow_scheduler" \
+		-target="airflow_worker" \
+		-target="airflow_triggerer"
+.PHONY: tf-orchest-destroy

@@ -99,11 +99,11 @@ variable "AIRFLOW__CORE__EXECUTOR" {
 }
 variable "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN" {
   type = string
-  default = "postgresql+psycopg2://${var.POSTGRES_USER}:${var.POSTGRES_PASSWORD}@${var.POSTGRES_HOST}/airflow"
+  default = "postgresql+psycopg2://admin:admin123@postgres/airflow"
 }
 variable "AIRFLOW__CELERY__RESULT_BACKEND" {
   type = string
-  default = "db+postgresql://${var.POSTGRES_USER}:${var.POSTGRES_PASSWORD}@${var.POSTGRES_HOST}/airflow"
+  default = "db+postgresql://admin:admin123@postgres/airflow"
 }
 variable "AIRFLOW__CELERY__BROKER_URL" {
   type = string

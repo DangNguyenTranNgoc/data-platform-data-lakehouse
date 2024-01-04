@@ -16,6 +16,7 @@ Tech Stack:
 - Hive Metastore
 - Data Build Tool (DBT)
 - Metabase (will add whenever the core data pipeline is done)
+- Jupyter Notebook (will add whenever the core data pipeline is done)
 - Prometheus
 - Grafana
 - cAdvisor

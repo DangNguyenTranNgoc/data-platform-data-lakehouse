@@ -1,0 +1,15 @@
+---
+- name: Create metastore database
+  hosts: localhost
+  connection: local
+  vars_files:
+    vars.yml
+  tasks:
+    - name: Check DB connection
+      community.postgresql.postgresql_ping:
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+        db: "postgres"
+				ignore_errors: true
+				register: is_db_existed

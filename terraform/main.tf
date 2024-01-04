@@ -4,6 +4,10 @@ terraform {
       source  = "kreuzwerker/docker"
       version = "~> 3.0.2"
     }
+    ansible = {
+      version = "~> 1.1.0"
+      source  = "ansible/ansible"
+    }
   }
 }
 
@@ -66,6 +70,11 @@ resource "docker_image" "airflow" {
     dockerfile = "airflow.dockerfile"
     tag = ["airflow:dev"]
   }
+}
+
+resource "docker_image" "redis" {
+  name = "qredis:latest"
+  keep_locally = true
 }
 
 resource "docker_network" "data_platform_net" {
@@ -296,14 +305,32 @@ resource "docker_container" "spark_worker_1" {
 
 # Orchestration Layer
 
+resource "docker_container" "redis" {
+  name = "redis"
+  hostname = "redis"
+  image = docker_image.redis.image_id
+  depends_on = [
+    docker_network.data_platform_net
+    ]
+  networks_advanced {
+    name = docker_network.data_platform_net.id
+  }
+  healthcheck {
+    test = ["CMD", "redis-cli", "ping"]
+    interval = "10s"
+    timeout = "30s"
+    retries = 50
+    start_period = "30s"
+  }
+}
+
 resource "docker_container" "airflow_webserver" {
   name = "airflow-webserver"
   image = docker_image.airflow.image_id
   hostname = "airflow-webserver"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis,
-    docker_container.airflow_init
+    docker_container.redis
   ]
   user = "50000:0"
   networks_advanced {
@@ -356,8 +383,7 @@ resource "docker_container" "airflow_scheduler" {
   hostname = "airflow-scheduler"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis,
-    docker_container.airflow_init
+    docker_container.redis
   ]
   wait = true
   user = "50000:0"
@@ -406,8 +432,7 @@ resource "docker_container" "airflow_worker" {
   image = docker_image.airflow.image_id
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis,
-    docker_container.airflow_init
+    docker_container.redis
   ]
   user = "50000:0"
   wait = true
@@ -458,8 +483,7 @@ resource "docker_container" "airflow_triggerer" {
   hostname = "airflow-triggerer"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis,
-    docker_container.airflow_init
+    docker_container.redis
   ]
   wait = true
   user = "50000:0"
