@@ -28,30 +28,6 @@ help:
 	@echo "$$HELP"
 .PHONY: help
 
-build:
-	docker-compose build
-.PHONY: build
-
-up:
-	docker-compose --env-file .env up -V > ./logs/log_$(DATE).log 2>&1 &
-.PHONY: up
-
-up-database:
-	docker-compose --profile database --env-file .env up -V > ./logs/log_$(DATE).log 2>&1 &
-.PHONY: up-database
-
-down:
-	docker-compose --env-file .env down
-.PHONY: down
-
-down-database:
-	docker-compose --profile database --env-file .env down
-.PHONY: down-database
-
-restart:
-	make down && make up
-.PHONY: restart
-
 clean-logs:
 	rm -f logs/*.log
 .PHONY: clean-logs
@@ -77,11 +53,11 @@ check-dbt:
 #######################
 
 tf-apply:
-	terraform -chdir=terraform apply
+	terraform -chdir=terraform apply | tee ./logs/log_$(DATE).log
 .PHONY: tf-apply
 
 tf-destroy:
-	terraform -chdir=terraform destroy
+	terraform -chdir=terraform destroy | tee ./logs/log_$(DATE).log
 .PHONY: tf-destroy
 
 tf-core-apply:
@@ -89,7 +65,8 @@ tf-core-apply:
 		-target="docker_container.postgres" \
 		-target="docker_container.hive_metastore" \
 		-target="docker_container.trino" \
-		-target="docker_container.minio"
+		-target="docker_container.minio" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-core-apply
 
 tf-core-destroy:
@@ -97,21 +74,24 @@ tf-core-destroy:
 		-target="docker_container.postgres" \
 		-target="docker_container.hive_metastore" \
 		-target="docker_container.trino" \
-		-target="docker_container.minio"
+		-target="docker_container.minio" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-core-destroy
 
 tf-transfom-apply:
 	terraform -chdir=terraform apply \
 		-target="docker_container.spark_thrift_server" \
 		-target="docker_container.spark_master" \
-		-target="docker_container.spark_worker_1"
+		-target="docker_container.spark_worker_1" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-transfom-apply
 
 tf-transfom-destroy:
 	terraform -chdir=terraform destroy \
 		-target="docker_container.spark_thrift_server" \
 		-target="docker_container.spark_master" \
-		-target="docker_container.spark_worker_1"
+		-target="docker_container.spark_worker_1" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-transfom-destroy
 
 tf-orchest-apply:
@@ -120,7 +100,8 @@ tf-orchest-apply:
 		-target="airflow_webserver" \
 		-target="airflow_scheduler" \
 		-target="airflow_worker" \
-		-target="airflow_triggerer"
+		-target="airflow_triggerer" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-orchest-apply
 
 tf-orchest-destroy:
@@ -129,5 +110,6 @@ tf-orchest-destroy:
 		-target="airflow_webserver" \
 		-target="airflow_scheduler" \
 		-target="airflow_worker" \
-		-target="airflow_triggerer"
+		-target="airflow_triggerer" \
+		| tee ./logs/log_$(DATE).log
 .PHONY: tf-orchest-destroy

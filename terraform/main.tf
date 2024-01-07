@@ -4,10 +4,6 @@ terraform {
       source  = "kreuzwerker/docker"
       version = "~> 3.0.2"
     }
-    ansible = {
-      version = "~> 1.1.0"
-      source  = "ansible/ansible"
-    }
   }
 }
 
@@ -104,6 +100,16 @@ resource "null_resource" "minio_folder" {
   }
 }
 
+# Create folder for airflow
+resource "null_resource" "airflow_folder" {
+  provisioner "local-exec" {
+    command = <<EOF
+mkdir -p /sources/logs /sources/dags /sources/plugins
+chown -R "${var.AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+EOF
+  }
+}
+
 ######################
 ## Define container ##
 ######################
@@ -139,6 +145,16 @@ resource "docker_container" "postgres" {
     ]
 }
 
+resource "null_resource" "run_ansible_init_database" {
+  depends_on = [ docker_container.postgres ]
+  provisioner "local-exec" {
+    command = <<EOF
+ansible-playbook -i ${local.codebase_root_path}/ansible/inventory \
+                ${local.codebase_root_path}/ansible/init-database.yml
+EOF
+  }
+}
+
 resource "docker_container" "hive_metastore" {
   name = "hive-metastore"
   image = docker_image.hive_metastore.image_id
@@ -146,7 +162,8 @@ resource "docker_container" "hive_metastore" {
     docker_container.postgres, 
     null_resource.hive_metastore_folder,
     docker_container.minio,
-    docker_network.data_platform_net
+    docker_network.data_platform_net,
+    null_resource.run_ansible_init_database
     ]
   networks_advanced {
     name = docker_network.data_platform_net.id
@@ -330,7 +347,8 @@ resource "docker_container" "airflow_webserver" {
   hostname = "airflow-webserver"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis
+    docker_container.redis,
+    null_resource.run_ansible_init_database
   ]
   user = "50000:0"
   networks_advanced {
@@ -365,6 +383,7 @@ resource "docker_container" "airflow_webserver" {
     host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
   }
   env = [
+    "AIRFLOW_UID=${var.AIRFLOW_UID}",
     "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
     "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
     "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
@@ -383,7 +402,8 @@ resource "docker_container" "airflow_scheduler" {
   hostname = "airflow-scheduler"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis
+    docker_container.redis,
+    null_resource.run_ansible_init_database
   ]
   wait = true
   user = "50000:0"
@@ -415,6 +435,7 @@ resource "docker_container" "airflow_scheduler" {
     host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
   }
   env = [
+    "AIRFLOW_UID=${var.AIRFLOW_UID}",
     "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
     "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
     "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",
@@ -432,7 +453,8 @@ resource "docker_container" "airflow_worker" {
   image = docker_image.airflow.image_id
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis
+    docker_container.redis,
+    null_resource.run_ansible_init_database
   ]
   user = "50000:0"
   wait = true
@@ -464,6 +486,7 @@ resource "docker_container" "airflow_worker" {
     host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
   }
   env = [
+    "AIRFLOW_UID=${var.AIRFLOW_UID}",
     "DUMB_INIT_SETSID=0",
     "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
     "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
@@ -483,7 +506,8 @@ resource "docker_container" "airflow_triggerer" {
   hostname = "airflow-triggerer"
   depends_on = [ 
     docker_container.postgres,
-    docker_container.redis
+    docker_container.redis,
+    null_resource.run_ansible_init_database
   ]
   wait = true
   user = "50000:0"
@@ -515,6 +539,7 @@ resource "docker_container" "airflow_triggerer" {
     host_path = "${local.codebase_root_path}/mnt/airflow/plugins"
   }
   env = [
+    "AIRFLOW_UID=${var.AIRFLOW_UID}",
     "AIRFLOW__CORE__EXECUTOR=${var.AIRFLOW__CORE__EXECUTOR}",
     "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${var.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}",
     "AIRFLOW__CELERY__RESULT_BACKEND=${var.AIRFLOW__CELERY__RESULT_BACKEND}",

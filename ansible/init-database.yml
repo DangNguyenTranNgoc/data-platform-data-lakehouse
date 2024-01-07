@@ -11,5 +11,23 @@
         login_user: "{{ db_user }}"
         login_password: "{{ db_password }}"
         db: "postgres"
-				ignore_errors: true
-				register: is_db_existed
+
+    - name: Create [metabase] database if not exists
+      community.postgresql.postgresql_query:
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+        db: "postgres"
+        query: |
+          SELECT 'CREATE DATABASE metabase'
+          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'metabase')\gexec
+
+    - name: Create [airflow] database if not exists
+      community.postgresql.postgresql_query:
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
+        db: "postgres"
+        query: |
+          SELECT 'CREATE DATABASE airflow'
+          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'airflow')\gexec

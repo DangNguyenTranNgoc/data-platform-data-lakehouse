@@ -130,3 +130,7 @@ variable "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK" {
   default = "true"
 }
 
+variable "AIRFLOW_UID" {
+  type = string
+  default = "50000"
+}
