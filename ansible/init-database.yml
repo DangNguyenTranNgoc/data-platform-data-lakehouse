@@ -5,29 +5,40 @@
   vars_files:
     vars.yml
   tasks:
-    - name: Check DB connection
+
+    - name: Try connect to DB
       community.postgresql.postgresql_ping:
         login_host: "{{ db_host }}"
         login_user: "{{ db_user }}"
         login_password: "{{ db_password }}"
-        db: "postgres"
+        db: postgres
+      register: is_success
 
-    - name: Create [metabase] database if not exists
-      community.postgresql.postgresql_query:
+    - name: Check if connect to DB successfully
+      ansible.builtin.fail:
+        msg: "Couldn't connect to PostgreSQL DB"
+      when: not is_success
+
+    - name: Create [metastore] database if not exists
+      community.postgresql.postgresql_db:
+        name: metastore
+        encoding: UTF-8
         login_host: "{{ db_host }}"
         login_user: "{{ db_user }}"
         login_password: "{{ db_password }}"
-        db: "postgres"
-        query: |
-          SELECT 'CREATE DATABASE metabase'
-          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'metabase')\gexec
 
     - name: Create [airflow] database if not exists
-      community.postgresql.postgresql_query:
+      community.postgresql.postgresql_db:
+        name: airflow
+        encoding: UTF-8
         login_host: "{{ db_host }}"
         login_user: "{{ db_user }}"
         login_password: "{{ db_password }}"
-        db: "postgres"
-        query: |
-          SELECT 'CREATE DATABASE airflow'
-          WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'airflow')\gexec
+
+    - name: Create [metabase] database if not exists
+      community.postgresql.postgresql_db:
+        name: metabase
+        encoding: UTF-8
+        login_host: "{{ db_host }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_password }}"
