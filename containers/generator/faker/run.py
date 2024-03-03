@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from flask import Flask
+from werkzeug.serving import WSGIRequestHandler
 
 from faker.v1.router import v1_blueprint
 from faker.v2.router import v2_blueprint
@@ -23,4 +24,5 @@ def get_rules():
 
 
 if __name__ == "__main__":
+    WSGIRequestHandler.protocol_version = "HTTP/1.1"
     app.run()
