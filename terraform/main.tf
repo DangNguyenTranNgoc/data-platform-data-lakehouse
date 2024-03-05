@@ -73,6 +73,21 @@ resource "docker_image" "redis" {
   keep_locally = true
 }
 
+resource "docker_image" "kafka" {
+  name = "confluentinc/cp-kafka:7.4.4"
+  keep_locally = true
+}
+
+resource "docker_image" "zookeeper" {
+  name = "confluentinc/cp-zookeeper:7.4.4"
+  keep_locally = true
+}
+
+resource "docker_image" "kafka_ui" {
+  name = "provectuslabs/kafka-ui:53a6553765a806eda9905c43bfcfe09da6812035"
+  keep_locally = true
+}
+
 resource "docker_network" "data_platform_net" {
   name = "data_platform_net"
   driver = "bridge"
