@@ -1,0 +1,39 @@
+geolocation:
+  csv: olist_geolocation_dataset.csv
+  index_colums: geolocation_zip_code_prefix
+
+customers:
+  csv: olist_customers_dataset.csv
+  index_colums: customer_id
+
+sellers:
+  csv: olist_sellers_dataset.csv
+  index_colums: seller_id
+
+category:
+  csv: product_category_name_translation.csv
+  index_colums: product_category_name
+
+products:
+  csv: olist_products_dataset.csv
+  index_colums: product_id
+
+orders:
+  csv: olist_orders_dataset.csv
+  index_colums: order_id
+
+items:
+  csv: olist_order_items_dataset.csv
+  index_colums:
+    - order_id
+    - product_id
+
+payments:
+  csv: olist_order_payments_dataset.csv
+  index_colums:
+    - order_id
+    - payment_sequential
+
+reviews:
+  csv: olist_order_reviews_dataset.csv
+  index_colums: review_id

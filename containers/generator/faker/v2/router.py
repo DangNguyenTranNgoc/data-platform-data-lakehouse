@@ -9,7 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 from kafka import KafkaProducer
 from flask import Blueprint, jsonify, make_response, stream_with_context
 
-from faker.v1.simulator import gen_order
+from faker.database import init_database
+from faker.v2.controller import find_product_by_id
+from faker.v2.simulator import gen_order
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:29092"
 
@@ -20,6 +22,29 @@ def healthcheck():
     ''' Just an health check function
     '''
     return jsonify({"message": "I'm healthy"})
+
+
+@v2_blueprint.route("/initdb")
+def database():
+    ''' Init database
+    '''
+    is_table_created = False
+    is_data_imported = False
+    init_database()
+    return make_response(
+        jsonify({"message": "Successfully"}),
+        200
+    )
+
+
+@v2_blueprint.route("/product/<int:product_id>")
+def get_product(product_id:int):
+    ''' Product api
+    '''
+    product = find_product_by_id(product_id)
+    if product:
+        return jsonify(product.toDict())
+    return jsonify({"message": "Product id is not existed"}, 404)
 
 
 @v2_blueprint.route("/orders-stream/")
