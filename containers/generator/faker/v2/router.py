@@ -10,8 +10,8 @@ from kafka import KafkaProducer
 from flask import Blueprint, jsonify, make_response, stream_with_context
 
 from faker.database import init_database
+from faker.v1.simulator import gen_order
 from faker.v2.controller import find_product_by_id
-from faker.v2.simulator import gen_order
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:29092"
 
@@ -65,7 +65,7 @@ def order_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
             jsonify({"message": "[minimum] must larger than maximum"}),
             400
         )
-    
+
     if (minimum / batch) < 1:
         return make_response(
             jsonify(
@@ -82,7 +82,7 @@ def order_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
         # Last batch
         for i in range(last_batch):
             yield json.dumps(gen_order())
-    
+
     response = make_response(
         stream_with_context(_stream())
     )
@@ -110,20 +110,6 @@ def order_kafka_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
     num_batchs = math.ceil(num_orders / batch)
     last_batch = num_orders % batch
 
-    if minimum > maximum:
-        return make_response(
-            jsonify({"message": "[minimum] must larger than maximum"}),
-            400
-        )
-    
-    if (minimum / batch) < 1:
-        return make_response(
-            jsonify(
-                {"message": "Invalid [batch] number, [minimun] divide [batch] \
-                 must be greater than 1"}),
-            400
-        )
-
     # Kafka Producer
     producer = KafkaProducer(
         bootstrap_servers=[KAFKA_BOOTSTRAP_SERVER],
@@ -147,6 +133,7 @@ def order_kafka_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
 
     return make_response(
         jsonify({"message": "Successfully",
-                 "total_orders": num_orders),
+                 "total_orders": num_orders,
+                 "total_batches": num_batchs}),
         200
     )

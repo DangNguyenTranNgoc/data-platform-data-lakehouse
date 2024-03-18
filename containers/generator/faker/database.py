@@ -27,7 +27,6 @@ PROJECT_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 DATA_SCHEMA = os.path.join(DATA_DIR, "ecom_schema.yml")
 
-
 def init_database():
     ''' Init database with schema and sample data
     '''
@@ -37,11 +36,10 @@ def init_database():
     with open(DATA_SCHEMA, 'r', encoding='utf-8') as f:
         ecom_shema = yaml.safe_load(f)
 
-    # Then, import data
     for table, schema in ecom_shema.items():
         data = pd.read_csv(os.path.join(DATA_DIR, schema['csv']))
         data.to_sql(con=db.engine,
                     index=False,
                     index_label=schema['index_colums'],
                     name=table,
-                    if_exists="replace")
+                    if_exists="append")
