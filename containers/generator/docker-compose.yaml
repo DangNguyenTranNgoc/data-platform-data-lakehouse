@@ -1,0 +1,41 @@
+version: '3.5'
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: ecom
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres
+    restart: unless-stopped
+  
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:8.4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@sample.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - postgres
+    restart: unless-stopped
+  
+  faker:
+    container_name: faker
+    image: ecom/faker
+    environment:
+      DEVELOPMENT_DATABASE_URL: postgresql://admin:admin@postgres:5432/ecom
+    ports:
+      - "5151:5000"
+    networks:
+      - postgres
+
+networks:
+  postgres:
+    driver: bridge

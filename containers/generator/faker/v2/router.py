@@ -1,19 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
 import math
 import json
 import time
 import random
 from concurrent.futures import ThreadPoolExecutor
-
 from kafka import KafkaProducer
-from flask import Blueprint, jsonify, make_response, stream_with_context
+from flask import Blueprint, request, jsonify
+from flask import make_response, stream_with_context
+from flasgger import swag_from
 
 from faker.database import init_database
 from faker.v1.simulator import gen_order
-from faker.v2.controller import find_product_by_id
+from faker.v2.controller import get_product_by_id, list_all_product
+from faker.v2.controller import create_product, update_product, delete_product
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:29092"
+PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 v2_blueprint = Blueprint(name='v2', import_name='v2')
 
@@ -28,8 +32,6 @@ def healthcheck():
 def database():
     ''' Init database
     '''
-    is_table_created = False
-    is_data_imported = False
     init_database()
     return make_response(
         jsonify({"message": "Successfully"}),
@@ -37,14 +39,122 @@ def database():
     )
 
 
-@v2_blueprint.route("/product/<int:product_id>")
-def get_product(product_id:int):
-    ''' Product api
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/product_list_v2.yml")))
+@v2_blueprint.route("/products", methods=["GET"])
+def list_products_api():
+    ''' List all product or create new product
     '''
-    product = find_product_by_id(product_id)
+    products = list_all_product()
+    if products:
+        return make_response(
+            jsonify(products),
+            200
+        )
+    return make_response(
+        jsonify({"message": "We don't have any product"}),
+        404
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/product_create_v2.yml")))
+@v2_blueprint.route("/products", methods=["POST"])
+def add_product_api():
+    ''' Create a product or create new product
+    '''
+    request_form = request.get_json()
+    product = create_product(
+        request_form["category_name"],
+        request_form["name_lenght"],
+        request_form["description_lenght"],
+        request_form["photos_qty"],
+        request_form["weight_g"],
+        request_form["length_cm"],
+        request_form["height_cm"],
+        request_form["width_cm"]
+    )
     if product:
-        return jsonify(product.toDict())
-    return jsonify({"message": "Product id is not existed"}, 404)
+        return make_response(
+            jsonify(product),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Invalid request"}),
+        400
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/product_retrieve_v2.yml")))
+@v2_blueprint.route("/products/<int:product_id>", methods=["GET"])
+def retrieve_product_api(product_id):
+    ''' Get a product
+    '''
+    # First, check if product with id is exested
+    product = get_product_by_id(product_id)
+    if not product:
+        return make_response(
+            jsonify({"message": "Product is not exist"}),
+            404
+        )
+    # Retrive a product
+    return make_response(
+        jsonify(product.toDict()),
+        200
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/product_update_v2.yml")))
+@v2_blueprint.route("/products/<int:product_id>", methods=["PUT"])
+def update_product_api(product_id):
+    ''' Update a product
+    '''
+    # First, check if product with id is exested
+    product = get_product_by_id(product_id)
+    if not product:
+        return make_response(
+            jsonify({"message": "Product is not exist"}),
+            404
+        )
+    # Update a product
+    request_form = request.get_json()
+    
+    product = update_product(
+        product.product_id,
+        request_form["category_name"],
+        request_form["name_lenght"],
+        request_form["description_lenght"],
+        request_form["photos_qty"],
+        request_form["weight_g"],
+        request_form["length_cm"],
+        request_form["height_cm"],
+        request_form["width_cm"]
+    )
+    if product:
+        return make_response(
+            jsonify(product),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Invalid request"}),
+        400
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/product_delete_v2.yml")))
+@v2_blueprint.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_product_api(product_id):
+    ''' Delete a product
+    '''
+    # Delete a product
+    product = delete_product(product_id)
+    if product:
+        return make_response(
+            jsonify(product),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Product is not existed"}),
+        404
+    )
 
 
 @v2_blueprint.route("/orders-stream/")
@@ -75,12 +185,12 @@ def order_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
         )
 
     def _stream():
-        for b in range(num_batchs):
-            for i in range(batch):
+        for _ in range(num_batchs):
+            for _ in range(batch):
                 yield json.dumps(gen_order())
             time.sleep(time_sleep)
         # Last batch
-        for i in range(last_batch):
+        for _ in range(last_batch):
             yield json.dumps(gen_order())
 
     response = make_response(
@@ -118,14 +228,14 @@ def order_kafka_stream(minimum:int = 100, maximum:int = 500, batch:int = 10):
 
     # Output flattened JSON record for each client record using threads
     with ThreadPoolExecutor(max_workers=16) as executor:
-        for b in range(num_batchs):
+        for _ in range(num_batchs):
             time_sleep = random.uniform(0.1, 1.0)
-            for i in range(batch):
+            for _ in range(batch):
                 producer.send('oders', json.dumps(gen_order()))
                 producer.flush()
             time.sleep(time_sleep)
         # Last batch
-        for i in range(last_batch):
+        for _ in range(last_batch):
             time_sleep = random.uniform(0.1, 1.0)
             producer.send('oders', json.dumps(gen_order()))
             producer.flush()

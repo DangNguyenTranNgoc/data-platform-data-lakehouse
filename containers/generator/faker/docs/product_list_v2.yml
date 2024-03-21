@@ -1,0 +1,30 @@
+description: "This API is used to list all product"
+tags:
+  - name: List all product
+consumes:
+  - application/json
+produces:
+  - application/json
+responses:
+    "200":
+      description: Successful response
+      schema:
+        title: Valid Prediction Response
+        type: object
+        example: 
+          product_id": 1
+          product_catego_name": abc
+          product_description_lenght": 
+          product_height_cm": 12
+          product_length_cm": 11
+          product_name_lenght": 24
+          product_photos_qty": 3
+          product_weight_g": 184.5
+          product_width_cm": 13
+    "404":
+      description: Bad request
+      schema:
+        title: No product found
+        type: object
+        example:
+          message: We don't have any product

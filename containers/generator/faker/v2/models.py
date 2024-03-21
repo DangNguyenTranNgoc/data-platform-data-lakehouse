@@ -19,7 +19,7 @@ class Customer(db.Model):
     customer_zip_code_prefix = mapped_column(String, nullable=True)
     customer_city: Mapped[str] = mapped_column(String, nullable=True)
     customer_state: Mapped[str] = mapped_column(String, nullable=True)
-    customer_order = relationship("Parent", back_populates="order_customer")
+    customer_order = relationship("Order", back_populates="order_customer")
 
 
 class Geolocation(db.Model):
@@ -27,7 +27,7 @@ class Geolocation(db.Model):
     ---
     '''
     __tablename__ = "geolocation"
-    geolocation_zip_code_prefix: Mapped[str] = mapped_column(String, primary_key=True)
+    geolocation_zip_code_prefix: Mapped[str] = mapped_column(String, nullable=False)
     geolocation_lat: Mapped[float] = mapped_column(Float, nullable=True)
     geolocation_lng: Mapped[float] = mapped_column(Float, nullable=True)
     geolocation_city: Mapped[str] = mapped_column(String, nullable=True)
@@ -44,7 +44,7 @@ class Payment(db.Model):
     payment_type: Mapped[str] = mapped_column(String, nullable=True)
     payment_installments: Mapped[int] = mapped_column(Integer, nullable=True)
     payment_value: Mapped[float] = mapped_column(Float, nullable=True)
-    payment_order = relationship("Child", back_populates="order_payment")
+    payment_order = relationship("Order", back_populates="order_payment")
 
 
 class Review(db.Model):
@@ -59,7 +59,7 @@ class Review(db.Model):
     review_comment_message = mapped_column(String, nullable=True)
     review_creation_date = mapped_column(DateTime, default=datetime.now())
     review_answer_timestamp = mapped_column(DateTime, default=datetime.now())
-    review_order = relationship("Child", back_populates="order_review")
+    review_order = relationship("Order", back_populates="order_review")
 
 
 class Seller(db.Model):
@@ -71,7 +71,7 @@ class Seller(db.Model):
     seller_zip_code_prefix = mapped_column(String, nullable=True)
     seller_city: Mapped[str] = mapped_column(String, nullable=True)
     seller_state: Mapped[str] = mapped_column(String, nullable=True)
-    seller_item = relationship("Parent", back_populates="item_seller")
+    seller_item = relationship("Item", back_populates="item_seller")
 
 
 class Category(db.Model):
@@ -97,7 +97,7 @@ class Product(db.Model):
     product_length_cm: Mapped[float] = mapped_column(Float, nullable=True)
     product_height_cm:Mapped[float] = mapped_column(Float, nullable=True)
     product_width_cm: Mapped[float] = mapped_column(Float, nullable=True)
-    product_item = relationship("Parent", back_populates="item_product")
+    product_item = relationship("Item", back_populates="item_product")
 
 
 class Order(db.Model):
@@ -113,10 +113,10 @@ class Order(db.Model):
     order_delivered_carrier_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     order_delivered_customer_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     order_estimated_delivery_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    order_customer = relationship("Child", back_populates="customer_oder")
-    order_payment = relationship("Parent", back_populates="payment_order")
-    order_item = relationship("Parent", back_populates="item_order")
-    order_review = relationship("Parent", back_populates="review_order")
+    order_customer = relationship("Customer", back_populates="customer_order")
+    order_payment = relationship("Payment", back_populates="payment_order")
+    order_item = relationship("Item", back_populates="item_order")
+    order_review = relationship("Review", back_populates="review_order")
 
 
 class Item(db.Model):
@@ -131,6 +131,6 @@ class Item(db.Model):
     shipping_limit_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     price: Mapped[int] = mapped_column(Integer, nullable=True)
     freight_value: Mapped[int] = mapped_column(Integer, nullable=True)
-    item_order = relationship("Child", back_populates="order_item")
-    item_product = relationship("Child", back_populates="product_item")
-    item_seller = relationship("Child", back_populates="seller_item")
+    item_order = relationship("Order", back_populates="order_item")
+    item_product = relationship("Product", back_populates="product_item")
+    item_seller = relationship("Seller", back_populates="seller_item")
