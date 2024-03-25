@@ -1,0 +1,37 @@
+description: "This API is used to remove seller"
+tags:
+  - name: seller
+consumes:
+  - application/json
+produces:
+  - application/json
+parameters:
+  - name: seller_id
+    in: path
+    type: integer
+    required: true
+responses:
+  200:
+    description: Successful response
+    schema:
+      title: Valid Response
+      type: object
+      example:
+        seller_id: 1
+        seller_zip_code_prefix: "01037"
+        seller_city: sao paulo
+        seller_state: SP
+  400:
+    description: Fail response
+    schema:
+      title: Invalid parameters
+      type: object
+      example:
+        message: Invalid request
+  404:
+    description: Seller is not found
+    schema:
+      title: Seller is not found
+      type: object
+      example:
+        message: Seller with id is not existed

@@ -31,10 +31,13 @@ services:
     image: ecom/faker
     environment:
       DEVELOPMENT_DATABASE_URL: postgresql://admin:admin@postgres:5432/ecom
+      FLASK_DEBUG: true
     ports:
       - "5151:5000"
     networks:
       - postgres
+    volumes:
+      - ./faker/:/faker
 
 networks:
   postgres:

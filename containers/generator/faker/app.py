@@ -19,7 +19,7 @@ SWAGGER_TEMPLATE ={
             "email": "admin@sample.com"
         },
         "version": "1.0",
-        "host":"Wine_Quality_Prediction",
+        "host":"Generator",
         "basePath":"http://localhost:5000",
         "license":{
             "name":"License of API",

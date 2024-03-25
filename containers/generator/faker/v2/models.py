@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from uuid import UUID
 from datetime import datetime
-# Temporary not used
-# from flask_validator import ValidateEmail, ValidateString, ValidateCountry
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy import Integer, Float, String, DateTime, ForeignKey
 
 from faker.database import db
@@ -21,15 +20,27 @@ class Customer(db.Model):
     customer_state: Mapped[str] = mapped_column(String, nullable=True)
     customer_order = relationship("Order", back_populates="order_customer")
 
+    @validates("customer_unique_id")
+    def is_valid_customer_unique_id(self, key, address):
+        ''' Check customer unique id
+        '''
+        try:
+            uuid_obj = UUID(address, version=4)
+        except ValueError as ex:
+            raise ValueError("Invalid UUID unique id of customer") from ex
+        if str(uuid_obj) == address:
+            return address
+        raise ValueError("Invalid UUID unique id of customer")
+
 
 class Geolocation(db.Model):
     ''' Geolocation model
     ---
     '''
     __tablename__ = "geolocation"
-    geolocation_zip_code_prefix: Mapped[str] = mapped_column(String, nullable=False)
-    geolocation_lat: Mapped[float] = mapped_column(Float, nullable=True)
-    geolocation_lng: Mapped[float] = mapped_column(Float, nullable=True)
+    geolocation_zip_code_prefix: Mapped[str] = mapped_column(String, primary_key=True)
+    geolocation_lat: Mapped[float] = mapped_column(Float, primary_key=True)
+    geolocation_lng: Mapped[float] = mapped_column(Float, primary_key=True)
     geolocation_city: Mapped[str] = mapped_column(String, nullable=True)
     geolocation_state: Mapped[str] = mapped_column(String, nullable=True)
 
@@ -68,7 +79,7 @@ class Seller(db.Model):
     '''
     __tablename__ = "sellers"
     seller_id = mapped_column(Integer, primary_key=True, autoincrement=True)
-    seller_zip_code_prefix = mapped_column(String, nullable=True)
+    seller_zip_code_prefix: Mapped[str] = mapped_column(String, nullable=True)
     seller_city: Mapped[str] = mapped_column(String, nullable=True)
     seller_state: Mapped[str] = mapped_column(String, nullable=True)
     seller_item = relationship("Item", back_populates="item_seller")
@@ -90,9 +101,9 @@ class Product(db.Model):
     __tablename__ = "products"
     product_id = mapped_column(Integer, primary_key=True, autoincrement=True)
     product_category_name: Mapped[str] = mapped_column(String, nullable=True)
-    product_name_lenght: Mapped[float] = mapped_column(Float, nullable=True)
-    product_description_lenght: Mapped[float] = mapped_column(Float, nullable=True)
-    product_photos_qty: Mapped[float] = mapped_column(Float, nullable=True)
+    product_name_lenght: Mapped[int] = mapped_column(Integer, nullable=True)
+    product_description_lenght: Mapped[int] = mapped_column(Integer, nullable=True)
+    product_photos_qty: Mapped[int] = mapped_column(Integer, nullable=True)
     product_weight_g: Mapped[float] = mapped_column(Float, nullable=True)
     product_length_cm: Mapped[float] = mapped_column(Float, nullable=True)
     product_height_cm:Mapped[float] = mapped_column(Float, nullable=True)

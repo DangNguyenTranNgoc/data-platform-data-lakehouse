@@ -1,0 +1,40 @@
+description: "This API is used to update a seller"
+tags:
+  - name: seller
+consumes:
+  - application/json
+produces:
+  - application/json
+parameters:
+  - name: seller_id
+    in: path
+    type: integer
+    required: true
+  - name: seller_id
+    in: body
+    required: true
+    schema:
+      type: "object"
+      properties:
+        seller:
+          type: "object"
+      example:
+        seller_zip_code_prefix: "06065"
+responses:
+    "200":
+      description: Successful response
+      schema:
+        title: Valid Prediction Response
+        type: object
+        example: 
+          seller_id: 1
+          seller_zip_code_prefix: "06065"
+          seller_city: osasco
+          seller_state: SP
+    "404":
+      description: Bad request
+      schema:
+        title: No seller found
+        type: object
+        example:
+          message: Seller with id is not existed

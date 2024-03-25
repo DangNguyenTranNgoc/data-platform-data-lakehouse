@@ -15,6 +15,8 @@ from faker.database import init_database
 from faker.v1.simulator import gen_order
 from faker.v2.controller import get_product_by_id, list_all_product
 from faker.v2.controller import create_product, update_product, delete_product
+from faker.v2.controller import find_seller_by_id, list_all_sellers
+from faker.v2.controller import add_new_seller, update_seller, delete_seller
 
 KAFKA_BOOTSTRAP_SERVER = "localhost:29092"
 PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -63,14 +65,14 @@ def add_product_api():
     '''
     request_form = request.get_json()
     product = create_product(
-        request_form["category_name"],
-        request_form["name_lenght"],
-        request_form["description_lenght"],
-        request_form["photos_qty"],
-        request_form["weight_g"],
-        request_form["length_cm"],
-        request_form["height_cm"],
-        request_form["width_cm"]
+        request_form["product_category_name"],
+        request_form["product_name_lenght"],
+        request_form["product_description_lenght"],
+        request_form["product_photos_qty"],
+        request_form["product_weight_g"],
+        request_form["product_length_cm"],
+        request_form["product_height_cm"],
+        request_form["product_width_cm"]
     )
     if product:
         return make_response(
@@ -116,7 +118,6 @@ def update_product_api(product_id):
         )
     # Update a product
     request_form = request.get_json()
-    
     product = update_product(
         product.product_id,
         request_form["category_name"],
@@ -153,6 +154,113 @@ def delete_product_api(product_id):
         )
     return make_response(
         jsonify({"message": "Product is not existed"}),
+        404
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/seller_list_v2.yml")))
+@v2_blueprint.route("/sellers", methods=["GET"])
+def list_sellers_api():
+    ''' List all sellers or create new product
+    '''
+    sellers = list_all_sellers()
+    if sellers:
+        return make_response(
+            jsonify(sellers),
+            200
+        )
+    return make_response(
+        jsonify({"message": "We don't have any seller in DB"}),
+        404
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/seller_create_v2.yml")))
+@v2_blueprint.route("/sellers", methods=["POST"])
+def add_seller_api():
+    ''' Create a product or create new product
+    '''
+    request_form = request.get_json()
+    seller = add_new_seller(
+        request_form["seller_zip_code_prefix"],
+        request_form["seller_city"],
+        request_form["seller_state"]
+    )
+    if seller:
+        return make_response(
+            jsonify(seller),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Invalid request"}),
+        400
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/seller_retrieve_v2.yml")))
+@v2_blueprint.route("/sellers/<int:seller_id>", methods=["GET"])
+def retrieve_seller_api(seller_id):
+    ''' Get a seller
+    '''
+    # First, check if seller with id is exested
+    seller = find_seller_by_id(seller_id)
+    if not seller:
+        return make_response(
+            jsonify({"message": "Seller with id is not exist"}),
+            404
+        )
+    # Retrive a seller
+    return make_response(
+        jsonify(seller.toDict()),
+        200
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/seller_update_v2.yml")))
+@v2_blueprint.route("/sellers/<int:seller_id>", methods=["PUT"])
+def update_seller_api(seller_id):
+    ''' Update a seller
+    '''
+    # First, check if seller with id is exested
+    seller = find_seller_by_id(seller_id)
+    if not seller:
+        return make_response(
+            jsonify({"message": "Seller with id is not exist"}),
+            404
+        )
+    # Update a seller
+    request_form = request.get_json()
+    seller = update_seller(
+        seller.seller_id,
+        request_form.get("seller_zip_code_prefix", None),
+        request_form.get("seller_city", None),
+        request_form.get("seller_state", None)
+    )
+    if seller:
+        return make_response(
+            jsonify(seller),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Invalid request"}),
+        400
+    )
+
+
+@swag_from(str(os.path.join(PROJECT_DIR, "docs/seller_delete_v2.yml")))
+@v2_blueprint.route("/sellers/<int:seller_id>", methods=["DELETE"])
+def delete_seller_api(seller_id):
+    ''' Delete a seller
+    '''
+    # Delete a seller
+    seller = delete_seller(seller_id)
+    if seller:
+        return make_response(
+            jsonify(seller),
+            200
+        )
+    return make_response(
+        jsonify({"message": "Seller with id is not existed"}),
         404
     )
 
